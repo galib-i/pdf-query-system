@@ -2,7 +2,7 @@ import os
 import shutil
 
 from dotenv import load_dotenv
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 # save a Google AI API key as GOOGLE_API_KEY="<key>" in a .env file

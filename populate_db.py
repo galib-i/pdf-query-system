@@ -1,6 +1,6 @@
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema.document import Document
+from langchain.schema.document import Document  # object is a better format for AI usage
 
 from utils import initialise_embeddings, initialise_chroma, reset_chroma_db
 
