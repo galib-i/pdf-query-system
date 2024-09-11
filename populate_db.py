@@ -8,6 +8,7 @@ DATA_PATH = "data"
 
 
 def main():
+    """Populates the Chroma database with document parts"""
     documents = load_documents()
     text_parts = split_documents(documents)
     save_to_chroma(text_parts)
