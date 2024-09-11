@@ -1,18 +1,17 @@
 import streamlit as st
-
 from langchain.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from utils import initialise_embeddings, initialise_chroma
+from utils import get_data_file_names, initialise_embeddings, initialise_chroma
 
 PROMPT_TEMPLATE = """
-Answer the question based only on the following context, from the given files:
+Answer the question based only on the following context:
 
 {context}
 
 ---
 
-Answer the question based on the above context, from the given files: {question}
+Answer the question based on the above context: {question}
 """
 
 
@@ -21,10 +20,16 @@ def main():
     st.set_page_config(page_title="Query PDFs", page_icon="💬")
     st.title("Query your PDF documents")
 
+    with st.sidebar:
+        st.write("Stored documents:")
+
+        for file_name in get_data_file_names():
+            st.markdown(f"- {file_name}")
+
     if "messages" not in st.session_state.keys():  # initialises the chat history
         st.session_state.messages = [{
             "role": "ai",
-            "content": "Ask me a question about your documents!"
+            "content": "Ask me a question about your documents."
         }]
 
     if query := st.chat_input("Ask a question"):  # saves input to chat history
