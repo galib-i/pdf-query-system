@@ -15,7 +15,7 @@ DATA_PATH = "data"
 def get_data_file_names():
     """Returns a list of filenames in the data directory"""
     try:
-        return [file for file in os.listdir(DATA_PATH)]
+        return list(os.listdir(DATA_PATH))
 
     except FileNotFoundError:
         return []
