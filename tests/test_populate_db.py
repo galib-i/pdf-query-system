@@ -21,7 +21,9 @@ class TestPopulateDB(unittest.TestCase):
     @patch("populate_db.reset_chroma_db")
     @patch("populate_db.initialise_chroma")
     @patch("populate_db.initialise_embeddings")
-    def test_save_to_chroma(self, mock_initialise_embeddings, mock_initialise_chroma, mock_reset_chroma_db):
+    def test_save_to_chroma(self, mock_initialise_embeddings, mock_initialise_chroma,
+                            mock_reset_chroma_db):
+        """Tests the saving of document parts to the Chroma database"""
         mock_initialise_embeddings.return_value = "mock_embeddings"
         mock_initialise_chroma.return_value.add_documents.return_value = None  # empty return
 

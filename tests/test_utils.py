@@ -30,6 +30,7 @@ class TestUtils(unittest.TestCase):
     @patch("os.path.exists")
     @patch("shutil.rmtree")
     def test_reset_chroma_db(self, mock_rmtree, mock_exists):
+        """Tests the removal and recreation of the Chroma folder"""
         mock_exists.return_value = True
         reset_chroma_db(CHROMA_PATH)
         mock_rmtree.assert_called_once_with(CHROMA_PATH)
