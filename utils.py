@@ -5,33 +5,37 @@ from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
-# save a Google AI API key as GOOGLE_API_KEY="<key>" in a .env file
-load_dotenv()  # hide API key
 
 CHROMA_PATH = "chroma"
 DATA_PATH = "data"
 
+# save a Google AI API key as GOOGLE_API_KEY="<key>" in a .env file
+load_dotenv()
+
 
 def get_data_file_names():
-    """Returns a list of filenames in the data directory"""
-    try:
-        return list(os.listdir(DATA_PATH))
+    """Returns filenames in the data directory"""
+    os.makedirs(DATA_PATH, exist_ok=True)
 
-    except FileNotFoundError:
-        return []
+    return os.listdir(DATA_PATH)
+
+
+def check_chroma_db(directory=CHROMA_PATH):
+    """Checks if the Chroma database exists"""
+    return os.path.exists(directory)
 
 
 def initialise_embeddings():
-    """Initialises Google Generative AI embeddings"""
+    """Initialises the embeddings model"""
     return GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
 
 def initialise_chroma(embedding_function, directory=CHROMA_PATH):
-    """Initialises a Chroma database, storing document data and vector embeddings"""
+    """Initialises a Chroma database"""
     return Chroma(persist_directory=directory, embedding_function=embedding_function)
 
 
 def reset_chroma_db(directory=CHROMA_PATH):
-    """Removes and recreates the existing Chroma directory"""
+    """Deletes and recreates the Chroma database."""
     if os.path.exists(directory):
         shutil.rmtree(directory)

@@ -1,8 +1,10 @@
 import streamlit as st
+
 from langchain.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from utils import get_data_file_names, initialise_embeddings, initialise_chroma
+from populate_db import populate_database, add_document
+from utils import get_data_file_names, check_chroma_db, initialise_embeddings, initialise_chroma
 
 PROMPT_TEMPLATE = """
 Answer the question based only on the following context:
@@ -16,78 +18,106 @@ Answer the question based on the above context: {question}
 
 
 def main():
-    """Run the Streamlit program to query PDFs using the RAG model"""
+    """Runs the Streamlit app for querying PDFs with RAG"""
     st.set_page_config(page_title="Query PDFs", page_icon="💬")
     st.title("Query your PDF documents")
 
     with st.sidebar:
-        st.write("Stored documents:")
+        handle_sidebar()
 
-        for file_name in get_data_file_names():
-            st.markdown(f"- {file_name}")
+    initialise_chat()
 
-    if "messages" not in st.session_state.keys():  # initialises the chat history
-        st.session_state.messages = [{
-            "role": "ai",
-            "content": "Ask me a question about your documents."
-        }]
-
-    if query := st.chat_input("Ask a question"):  # saves input to chat history
+    if query := st.chat_input("Ask a question"):
         st.session_state.messages.append({"role": "user", "content": query})
 
-    for message in st.session_state.messages:  # displays chat history
+    display_chat_history()
+
+    if st.session_state.messages[-1]["role"] == "user":
+        handle_user_query()
+
+
+def handle_sidebar():
+    """Handles file uploads and displays stored documents"""
+    if "uploader_key" not in st.session_state:  # https://discuss.streamlit.io/t/clear-the-file-uploader-after-using-the-file-data/66178/4
+        st.session_state.uploader_key = 0  # set a key for the uploader
+
+    uploaded_file = st.file_uploader("Upload", label_visibility="hidden", type=["pdf"], key=f"uploader_{st.session_state.uploader_key}")
+
+    if uploaded_file:
+        file_path = add_document(document=uploaded_file)
+        st.success(f"File saved at: {file_path}")
+        # increment the key to reset the uploader
+        st.session_state.uploader_key += 1
+
+    file_names = get_data_file_names()
+
+    if not file_names:
+        st.warning("No files found. Please upload PDFs.")
+
+    elif not check_chroma_db():
+        st.warning("Database does not exist.")
+        st.button("Create Database", type="primary", on_click=populate_database)
+
+    else:
+        st.write("Stored documents:")
+
+        for file_name in file_names:
+            st.markdown(f"- {file_name}")
+
+
+def initialise_chat():
+    """initialises the chat state"""
+    if "messages" not in st.session_state:
+        st.session_state.messages = [{"role": "ai", "content": "Ask me a question about your documents."}]
+
+
+def display_chat_history():
+    """Displays the chat history"""
+    for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.write(message["content"])
 
-    if st.session_state.messages[-1]["role"] != "ai":  # if the user has asked a question
-        with st.chat_message("ai"):  # AI responds to the user's question
-            response_text, sources = query_rag(st.session_state.messages[-1]["content"])
 
-            output = f"""
-            {response_text}
+def handle_user_query():
+    """Handles user queries by providing AI responses"""
+    query = st.session_state.messages[-1]["content"]
 
-            Scanned: {sources}
-            """
-            st.write(output)
-            # saves the AI response to the chat history
-            message = {"role": "assistant", "content": output}
-        st.session_state.messages.append(message)
+    with st.chat_message("ai"):
+        response, sources = query_rag(query)
+        output = f"{response}\n\nScanned: {sources}"
+        st.write(output)
+        st.session_state.messages.append({"role": "assistant", "content": output})
 
 
 def query_rag(query_text):
-    """Queries the RAG model using the input"""
+    """Queries the RAG model with a user's input"""
     embeddings = initialise_embeddings()
-
-    db = initialise_chroma(embeddings)  # loads the Chroma database
+    db = initialise_chroma(embeddings)
     results = db.similarity_search_with_relevance_scores(query_text, k=5)
-    # extracts content and their assigned scores from the found results
-    context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in results])
 
+    context_text = "\n\n---\n\n".join([doc.page_content for doc, _ in results])
     prompt_text = generate_prompt(context=context_text, question=query_text)
 
     try:
-        response_text, sources = return_response(prompt=prompt_text, results=results)
-        return response_text, sources
+        return return_response(prompt=prompt_text, results=results)
 
     except Exception as e:
-        return f"An error occurred: {e}"
+        return f"An error occurred: {e}", ""
 
 
 def generate_prompt(context, question):
-    """Generates a prompt to feed to Google Generative AI"""
+    """Generates the RAG prompt"""
     prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
 
     return prompt_template.format(context=context, question=question)
 
 
 def return_response(prompt, results):
-    """Returns the response and sources used from Google Generative AI"""
+    """Gets a response and sources from the AI"""
     model = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0.3)
     response = model.invoke(prompt)
 
-    # lists the sources used to formulate the response
-    sources = {doc.metadata.get("source", None) for doc, _score in results}
-    sources = ", ".join(sources)
+    sources = ", ".join({doc.metadata.get("source", "Unknown") for doc, _ in results})
 
     return response.content, sources
 

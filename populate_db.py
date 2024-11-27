@@ -1,37 +1,63 @@
-from langchain_community.document_loaders import PyPDFDirectoryLoader
+import os
+
+from langchain_community.document_loaders import PyPDFDirectoryLoader, PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema.document import Document  # object is a better format for AI usage
+from langchain.schema.document import Document
 
-from utils import initialise_embeddings, initialise_chroma, reset_chroma_db
-
-DATA_PATH = "data"
+from utils import initialise_embeddings, initialise_chroma, reset_chroma_db, DATA_PATH
 
 
-def main():
-    """Populates the Chroma database with document parts"""
+def populate_database():
+    """Populates the Chroma database with all PDFs in the data folder"""
     documents = load_documents()
     text_parts = split_documents(documents)
     save_to_chroma(text_parts)
 
 
-def load_documents():
-    """Loads documents stored in the data directory"""
-    document_loader = PyPDFDirectoryLoader(path=DATA_PATH)
+def add_document(document):
+    """Adds a single document to the Chroma database"""
+    file_path = save_document(document)
+    document_content = PyPDFLoader(file_path).load()
+    text_parts = split_documents(document_content)
 
-    return document_loader.load()
+    append_to_chroma(text_parts)
+
+    return file_path
+
+
+def save_document(document):
+    """Saves an uploaded document to the data folder"""
+    file_path = os.path.join(DATA_PATH, document.name)
+    os.makedirs(DATA_PATH, exist_ok=True)
+
+    with open(file_path, "wb") as f:
+        f.write(document.getbuffer())
+
+    return file_path
+
+
+def load_documents():
+    """Loads all PDF documents from the data folder"""
+    loader = PyPDFDirectoryLoader(path=DATA_PATH)
+
+    return loader.load()
 
 
 def split_documents(documents: list[Document]):
-    """Divides documents into manageable parts for indexing"""
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=80)
+    """Splits documents into smaller chunks for processing"""
+    splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=80)
 
-    return text_splitter.split_documents(documents=documents)
+    return splitter.split_documents(documents=documents)
 
 
 def save_to_chroma(parts: list[Document]):
-    """Saves document parts to a Chroma database"""
+    """Resets and stores new document parts in the Chroma database"""
     reset_chroma_db()
+    append_to_chroma(parts)
 
+
+def append_to_chroma(parts: list[Document]):
+    """Appends new document parts to the Chroma database."""
     embeddings = initialise_embeddings()
     db = initialise_chroma(embeddings)
     db.add_documents(documents=parts)
@@ -40,4 +66,4 @@ def save_to_chroma(parts: list[Document]):
 
 
 if __name__ == "__main__":
-    main()
+    populate_database()
